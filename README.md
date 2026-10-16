@@ -1,4 +1,5 @@
 # Como burlar a verificação de idade no Archive do website
+No navegador aperte F12 -> Console, cole o código abaixo e dê ctrl + enter ou aperte em "run".
 ```bash
 document.querySelectorAll(
   '.age-gate, .age-gate-overlay, .age-gate-wrapper'

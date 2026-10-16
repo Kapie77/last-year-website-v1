@@ -15,3 +15,12 @@ document.querySelectorAll('body > *').forEach(el => {
   }
 });
 ```
+
+# O que faz a captura do site quebrar
+O scripts abaixo faz o site fica atualizando sem parar, o quebrando:
+```bash
+<script>if (document.location.protocol != "index.html") 
+	{document.location = document.URL.replace(/^http:/i, "index.html");}
+</script>
+```
+(O problema é que, quando você abre o HTML diretamente no computador, o protocolo da página é file:, e não https:.)

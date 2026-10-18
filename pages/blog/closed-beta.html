@@ -456,11 +456,9 @@ var age_gate_params = {"ajaxurl":"https:\/\/web.archive.org\/web\/20191212114322
 /* ]]> */
 </script>
 
-<!-- 
-Javascript original para verificação de idade:
+
 <script type="text/javascript" src="../../..//js/age-gate-public77e6.js"></script>
 <script type="text/javascript" src="../../../js/age-gate-public-tab77e6.js"></script>
--->
 
 <script type="text/javascript">
 /* <![CDATA[ */
@@ -502,114 +500,146 @@ ga('send', 'pageview');
 (function () {
     "use strict";
 
-    const form = document.getElementById("age-gate-form");
+    const STORAGE_KEY = "lastyear-age-verified";
+    const MINIMUM_AGE = 18;
 
-    if (!form) return;
+    // Localiza e remove a tela de verificação.
+    function unlockPage() {
+        document.querySelectorAll(".age-gate-wrapper").forEach(function (element) {
+            element.remove();
+        });
 
-    const monthField = document.getElementById("age-gate-m");
-    const dayField = document.getElementById("age-gate-d");
-    const yearField = document.getElementById("age-gate-y");
-    const errorField = form.querySelector(".age-gate-error");
+        document.querySelectorAll(".age-gate-overlay").forEach(function (element) {
+            element.remove();
+        });
 
-    // Verifica se a idade já foi confirmada neste navegador.
-    try {
-        if (localStorage.getItem("lastyear-age-verified") === "true") {
-            document.documentElement.classList.remove("age-gate-restricted");
-            document.body.classList.remove("age-restriction");
-        }
-    } catch (error) {
-        console.warn("Não foi possível consultar o armazenamento local.");
+        document.documentElement.classList.remove(
+            "age-gate-restricted",
+            "age-gate-open"
+        );
+
+        document.body.classList.remove(
+            "age-restriction",
+            "age-gate-restricted"
+        );
     }
 
-    form.addEventListener("submit", function (event) {
-        event.preventDefault();
+    // Mostra mensagens de erro no próprio formulário.
+    function showError(form, message) {
+        const error = form.querySelector(".age-gate-error");
+
+        if (error) {
+            error.textContent = message;
+            error.style.display = "block";
+        } else {
+            alert(message);
+        }
+    }
+
+    // Confere se a idade informada é válida.
+    function validateAge(form) {
+        const monthField = form.querySelector('[name="age_gate[m]"]');
+        const dayField = form.querySelector('[name="age_gate[d]"]');
+        const yearField = form.querySelector('[name="age_gate[y]"]');
+
+        if (!monthField || !dayField || !yearField) {
+            showError(form, "The age verification form is incomplete.");
+            return;
+        }
+
+        if (!monthField.value || !dayField.value || !yearField.value) {
+            showError(form, "Please enter your date of birth.");
+            return;
+        }
 
         const month = Number(monthField.value);
         const day = Number(dayField.value);
         const year = Number(yearField.value);
 
-        if (!monthField.value || !dayField.value || !yearField.value) {
-            showError("Please enter your date of birth.");
-            return;
-        }
-
         const birthDate = new Date(year, month - 1, day);
+        const today = new Date();
 
-        // Impede datas inexistentes, como 31 de fevereiro.
+        // Rejeita datas inexistentes ou futuras.
         if (
             birthDate.getFullYear() !== year ||
             birthDate.getMonth() !== month - 1 ||
-            birthDate.getDate() !== day
+            birthDate.getDate() !== day ||
+            birthDate > today
         ) {
-            showError("Please enter a valid date.");
+            showError(form, "Please enter a valid date.");
             return;
         }
 
-        const today = new Date();
-
-        if (birthDate > today) {
-            showError("Please enter a valid date.");
-            return;
-        }
-
-        // Calcula a idade em anos completos.
         let age = today.getFullYear() - year;
 
         if (
             today.getMonth() < month - 1 ||
-            (today.getMonth() === month - 1 && today.getDate() < day)
+            (
+                today.getMonth() === month - 1 &&
+                today.getDate() < day
+            )
         ) {
             age--;
         }
 
-        // O site original usava uma verificação etária.
-        // Aqui adotamos 18 anos como limite configurável.
-        const minimumAge = 18;
-
-        if (age < minimumAge) {
-            showError("You must be at least 18 years old to enter.");
+        if (age < MINIMUM_AGE) {
+            showError(
+                form,
+                "You must be at least 18 years old to enter."
+            );
             return;
         }
 
-        // Registra a confirmação localmente.
+        // Guarda a confirmação apenas neste navegador.
         try {
-            localStorage.setItem("lastyear-age-verified", "true");
+            localStorage.setItem(STORAGE_KEY, "true");
         } catch (error) {
-            console.warn("Não foi possível salvar a confirmação.");
+            console.warn("Local storage is unavailable.");
         }
 
-        // Libera a página.
-        document.documentElement.classList.remove("age-gate-restricted");
-        document.body.classList.remove("age-restriction");
+        unlockPage();
+    }
 
-        // Se o age gate for uma tela separada, oculta-o.
-        const gate = document.querySelector(".age-gate");
+    // O formulário pode ser inserido na página depois deste script.
+    // Por isso, escutamos o envio no documento inteiro.
+    document.addEventListener("submit", function (event) {
+        const form = event.target;
 
-        if (gate) {
-            gate.style.display = "none";
+        if (!form.matches(".age-gate-form")) {
+            return;
         }
 
-        // Remove as classes de restrição de idade, caso existam.
-        document.querySelectorAll(".age-gate-overlay").forEach(function (element) {
-            element.style.display = "none";
-        });
+        event.preventDefault();
+        event.stopImmediatePropagation();
 
-        // Mostra o conteúdo principal, se estiver oculto.
-        const content = document.querySelector("main, #page, .site-content");
+        validateAge(form);
+    }, true);
 
-        if (content) {
-            content.style.display = "";
-        }
-    });
-
-    function showError(message) {
-        if (errorField) {
-            errorField.textContent = message;
-            errorField.style.display = "block";
-        } else {
-            alert(message);
+    // Se a idade já foi confirmada, remove a tela.
+    function checkSavedVerification() {
+        try {
+            if (localStorage.getItem(STORAGE_KEY) === "true") {
+                unlockPage();
+            }
+        } catch (error) {
+            // O formulário continuará funcionando sem armazenamento.
         }
     }
+
+    // Observa a inserção tardia da tela original do Age Gate.
+    const observer = new MutationObserver(function () {
+        checkSavedVerification();
+    });
+
+    if (document.documentElement) {
+        observer.observe(document.documentElement, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    checkSavedVerification();
+
 })();
 </script>
 <!---------------------------------->
